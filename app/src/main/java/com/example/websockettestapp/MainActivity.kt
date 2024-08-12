@@ -30,8 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var editText: EditText
     private val LOCATION_PERMISSION_REQUEST_CODE = 1000
     private var recivetext: String = ""
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var locationCallback: LocationCallback
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         button = findViewById(R.id.connect)
         disbutton = findViewById(R.id.disconnect)
         editText = findViewById(R.id.textbox)
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
 
         editText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
@@ -56,27 +55,29 @@ class MainActivity : AppCompatActivity() {
         requestLocationPermissions()
 
         disbutton.setOnClickListener {
-            if (isConnected) {
-                webSocket.close(1000, "App is closing")
-                isConnected = false
-                Toast.makeText(this, "Disconnected Successfully", Toast.LENGTH_LONG).show()
-            }
-
-            // Safely remove location updates
-            if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
-                fusedLocationClient.removeLocationUpdates(locationCallback)
-            }
-
-            Toast.makeText(this, "please connect web socket first", Toast.LENGTH_LONG).show()
+//            if (isConnected) {
+//                webSocket.close(1000, "App is disconnecting")
+//                isConnected = false
+//                stopLocationService()
+//                Toast.makeText(this, "Disconnected Successfully", Toast.LENGTH_LONG).show()
+//            } else {
+//                Toast.makeText(this, "Please connect WebSocket first", Toast.LENGTH_LONG).show()
+//            }
+            stopLocationService()
+            button.isEnabled= true
+            disbutton.isEnabled = false
         }
 
 
-        button.setOnClickListener {
-            //initializeWebSocket()
 
-            // Start the foreground service to handle location updates and WebSocket communication
+
+
+
+        button.setOnClickListener {
             val intent = Intent(this, LocationService::class.java)
             ContextCompat.startForegroundService(this, intent)
+            button.isEnabled= false
+            disbutton.isEnabled = true
         }
     }
 
@@ -85,7 +86,7 @@ class MainActivity : AppCompatActivity() {
         if (isConnected) {
             webSocket.close(1000, "App is closing")
         }
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+
     }
 
     private fun initializeWebSocket() {
@@ -120,7 +121,7 @@ class MainActivity : AppCompatActivity() {
                 LOCATION_PERMISSION_REQUEST_CODE
             )
         } else {
-            startLocationUpdates()
+
         }
     }
 
@@ -131,66 +132,15 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startLocationUpdates()
+
         }
     }
 
-    private fun startLocationUpdates() {
-        // Ensure fusedLocationClient is initialized
-        if (!::fusedLocationClient.isInitialized) {
-            fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        }
 
-        val locationRequest = LocationRequest.create().apply {
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-            interval = 1000
-        }
-
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                for (location in locationResult.locations) {
-                    sendLocationToWebSocket(location)
-                }
-            }
-        }
-
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest,
-            locationCallback,
-            Looper.getMainLooper()
-        )
+    private fun stopLocationService() {
+        val intent = Intent(this, LocationService::class.java)
+        stopService(intent)
     }
 
 
-    private fun sendLocationToWebSocket(location: Location) {
-        val message = "Lat: ${location.latitude}, Long: ${location.longitude}"
-        sendMessage(message)
-    }
-
-    private fun sendMessage(message: String) {
-        if (isConnected) {
-            val isMessageSent = webSocket.send(message)
-            if (isMessageSent) {
-                Log.d("WebSocket", "Message successfully sent: $message")
-                runOnUiThread {
-                    Toast.makeText(this, "Message successfully sent: $message", Toast.LENGTH_SHORT)
-                        .show()
-                }
-            } else {
-                Log.d("WebSocket", "Failed to enqueue message: $message")
-            }
-        } else {
-            Log.d("WebSocket", "Cannot send message, WebSocket is not connected")
-        }
-    }
 }

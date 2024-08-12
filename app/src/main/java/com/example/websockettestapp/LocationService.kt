@@ -34,16 +34,25 @@ class LocationService : Service() {
         initializeWebSocket()
     }
 
+//    override fun onLocationResult(locationResult: LocationResult) {
+//        if (locationResult.locations.isNotEmpty()) {
+//            for (location in locationResult.locations) {
+//                Log.d(
+//                    "LocationService",
+//                    "Location received: ${location.latitude}, ${location.longitude}"
+//                )
+//                sendLocationToWebSocket(location)
+//            }
+//        }
+//    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (isConnected) {
-            webSocket.close(1000, "Service is stopping")
-        }
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        stopLocationUpdates()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -71,6 +80,45 @@ class LocationService : Service() {
         client.dispatcher.executorService.shutdown()
     }
 
+    //    private fun startLocationUpdates() {
+//        val locationRequest = LocationRequest.create().apply {
+//            priority = LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY
+//            interval = 1000 // Request location updates every 1 second
+//            fastestInterval = 1000 // Allow the fastest location updates to be every 1 second
+//        }
+//
+////        locationCallback = object : LocationCallback() {
+////            override fun onLocationResult(locationResult: LocationResult) {
+////                if (locationResult.locations.isNotEmpty()) {
+////                    for (location in locationResult.locations) {
+////                        Log.d("LocationService", "Location send: ${location.latitude}, ${location.longitude}")
+////                        sendLocationToWebSocket(location)
+////                    }
+////                }
+////            }
+////        }
+//
+////        locationCallback = object : LocationCallback() {
+////            override fun onLocationResult(locationResult: LocationResult) {
+////                for (location in locationResult.locations) {
+////                    sendLocationToWebSocket(location)
+////                }
+////            }
+////        }
+//
+//        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+//            ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
+//        ) {
+//            Log.d("LocationService", "Location permissions not granted")
+//            return
+//        }
+//
+//        fusedLocationClient.requestLocationUpdates(
+//            locationRequest,
+//            locationCallback,
+//            Looper.getMainLooper()
+//        )
+//    }
     private fun startLocationUpdates() {
         val locationRequest = LocationRequest.create().apply {
             priority = LocationRequest.PRIORITY_HIGH_ACCURACY
@@ -82,9 +130,11 @@ class LocationService : Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 if (locationResult.locations.isNotEmpty()) {
                     for (location in locationResult.locations) {
-                        Log.d("LocationService", "Location send: ${location.latitude}, ${location.longitude}")
+                        Log.d("LocationService", "Location received: ${location.latitude}, ${location.longitude}")
                         sendLocationToWebSocket(location)
                     }
+                } else {
+                    Log.d("LocationService", "No location result received")
                 }
             }
         }
@@ -96,12 +146,14 @@ class LocationService : Service() {
             return
         }
 
+        Log.d("LocationService", "Requesting location updates")
         fusedLocationClient.requestLocationUpdates(
             locationRequest,
             locationCallback,
             Looper.getMainLooper()
         )
     }
+
 
     private fun sendLocationToWebSocket(location: Location) {
         val message = "Lat: ${location.latitude}, Long: ${location.longitude}"
@@ -151,5 +203,11 @@ class LocationService : Service() {
             .build()
 
         startForeground(1, notification)
+    }
+
+    private fun stopLocationUpdates() {
+        if (locationCallback != null) {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
     }
 }
